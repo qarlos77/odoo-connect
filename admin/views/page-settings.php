@@ -175,28 +175,23 @@
             </div>
 
             <div class="oc-card">
-                <h2>Instrucciones Odoo → WP</h2>
-                <p>Para sincronizar automáticamente cuando un producto cambie en Odoo, añade esto al addon de Odoo:</p>
-                <pre class="oc-pre"><?php echo esc_html(
-"# En product.template, override write/create/unlink
-import requests
-
-def _notify_wp(self):
-    secret = self.env['ir.config_parameter'].sudo().get_param(
-        'loyalty_rewards_api.wp_webhook_secret')
-    wp_url = self.env['ir.config_parameter'].sudo().get_param(
-        'loyalty_rewards_api.wp_webhook_url')
-    if not secret or not wp_url:
-        return
-    for rec in self:
-        try:
-            requests.post(wp_url, json={
-                'action': 'write',
-                'id': rec.id,
-            }, headers={'X-Odoo-Secret': secret}, timeout=5)
-        except Exception:
-            pass"
-                ) ?></pre>
+                <h2>Push desde Odoo</h2>
+                <p style="font-size:13px;color:#1d2327">
+                    Configura en <strong>Odoo → Ajustes → Loyalty Rewards API → WooCommerce</strong>:
+                </p>
+                <ul class="oc-status-list" style="font-size:13px">
+                    <li>
+                        <span class="oc-label">Webhook URL</span>
+                        <code class="oc-code" style="font-size:11px"><?= esc_html(rest_url('odoo-connect/v1/sync')) ?></code>
+                    </li>
+                    <li>
+                        <span class="oc-label">Clave secreta</span>
+                        <code class="oc-code" style="font-size:11px"><?= esc_attr(get_option('odoo_connect_webhook_secret','—')) ?></code>
+                    </li>
+                </ul>
+                <p style="font-size:12px;color:#646970;margin-top:10px">
+                    El addon <em>loyalty_rewards_api</em> enviará automáticamente una llamada a esta URL cada vez que un producto sea creado, editado o eliminado en Odoo.
+                </p>
             </div>
         </div>
     </div>

@@ -108,19 +108,23 @@ class OdooConnect_Client {
         ) ?? [];
     }
 
-    /** Devuelve un conjunto de productos por IDs (sin imagen para uso en batch) */
+    /** Devuelve un conjunto de productos por IDs incluyendo imagen (chunks pequeños) */
     public function get_products_by_ids(array $ids): array {
         if (empty($ids)) return [];
-        return $this->call('product.template', 'search_read',
+        $prev = $this->timeout;
+        $this->timeout = $this->batch_timeout;
+        $result = $this->call('product.template', 'search_read',
             [[['id', 'in', $ids]]],
             [
                 'fields' => [
                     'id', 'name', 'default_code', 'list_price',
-                    'description_sale', 'pos_categ_ids',
+                    'description_sale', 'image_1920', 'pos_categ_ids',
                     'attribute_line_ids', 'write_date', 'active',
                 ],
             ]
         ) ?? [];
+        $this->timeout = $prev;
+        return $result;
     }
 
     /** Devuelve un producto por ID */
