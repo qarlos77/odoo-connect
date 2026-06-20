@@ -1,0 +1,87 @@
+/* Odoo Connect — Admin Styles */
+
+.odoo-connect-wrap { max-width: 1200px; }
+
+.oc-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 22px;
+    margin-bottom: 20px;
+}
+.oc-title .dashicons { color: #e07b39; font-size: 26px; width: 26px; height: 26px; }
+
+/* Layout */
+.oc-layout { display: grid; grid-template-columns: 1fr 340px; gap: 20px; align-items: start; }
+@media (max-width: 1024px) { .oc-layout { grid-template-columns: 1fr; } }
+
+/* Cards */
+.oc-card {
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-radius: 4px;
+    padding: 20px 24px;
+    margin-bottom: 16px;
+}
+.oc-card h2 { margin-top: 0; font-size: 15px; border-bottom: 1px solid #f0f0f1; padding-bottom: 12px; }
+
+/* Test connection row */
+.oc-test-row { margin-top: 16px; display: flex; align-items: center; gap: 12px; }
+#oc-test-result { font-size: 13px; }
+#oc-test-result.success { color: #00a32a; }
+#oc-test-result.error   { color: #d63638; }
+
+/* Code */
+.oc-code { background: #f6f7f7; padding: 4px 8px; border-radius: 3px; font-size: 12px; word-break: break-all; }
+.oc-pre  {
+    background: #1e1e1e;
+    color: #d4d4d4;
+    padding: 14px;
+    border-radius: 4px;
+    font-size: 11px;
+    line-height: 1.6;
+    overflow-x: auto;
+    white-space: pre;
+}
+
+/* Sync button */
+.oc-sync-btn { width: 100%; justify-content: center; display: flex; align-items: center; gap: 6px; }
+.oc-sync-btn .dashicons { animation: none; }
+.oc-sync-btn.loading .dashicons { animation: oc-spin 1s linear infinite; }
+@keyframes oc-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+.oc-sync-result {
+    margin-top: 14px;
+    padding: 12px;
+    border-radius: 4px;
+    font-size: 13px;
+    line-height: 1.7;
+}
+.oc-sync-result.success { background: #edfaef; border: 1px solid #00a32a; color: #1d2327; }
+.oc-sync-result.error   { background: #fcf0f1; border: 1px solid #d63638; color: #1d2327; }
+
+/* Status list */
+.oc-status-list { margin: 0; padding: 0; list-style: none; }
+.oc-status-list li { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f0f0f1; font-size: 13px; }
+.oc-status-list li:last-child { border-bottom: none; }
+
+/* Logs table */
+.oc-logs-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.oc-logs-table .oc-msg { font-size: 12px; color: #646970; }
+.oc-empty { text-align: center; padding: 30px; color: #646970; font-style: italic; }
+
+/* Badges */
+.oc-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+.oc-status-ok      { background: #edfaef; color: #00a32a; }
+.oc-status-error   { background: #fcf0f1; color: #d63638; }
+.oc-action-created { background: #e8f4fd; color: #0073aa; }
+.oc-action-updated { background: #f0f4e8; color: #5a7a00; }
+.oc-action-unpublish { background: #fef9e7; color: #a08500; }
+.oc-action-sync    { background: #f6f7f7; color: #50575e; }
