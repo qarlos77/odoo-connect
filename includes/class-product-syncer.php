@@ -212,6 +212,15 @@ class OdooConnect_ProductSyncer {
         }
 
         $product->set_attributes($wc_attrs);
+
+        $sku = $odoo['default_code'] ?: '';
+        if ($sku) {
+            $existing_sku_id = wc_get_product_id_by_sku($sku);
+            if (!$existing_sku_id || $existing_sku_id === $product->get_id()) {
+                $product->set_sku($sku);
+            }
+        }
+
         $product->update_meta_data('_odoo_id',        $odoo['id']);
         $product->update_meta_data('_odoo_write_date', $odoo['write_date'] ?? '');
         $product->save();
