@@ -86,6 +86,9 @@ class OdooConnect_Admin {
         check_ajax_referer('odoo_connect_nonce', 'nonce');
         if (!current_user_can('manage_options')) wp_die('No autorizado');
 
+        @set_time_limit(300);
+        ignore_user_abort(true);
+
         $client = OdooConnect_Scheduler::build_client();
         if (!$client) {
             wp_send_json_error(['message' => 'No se pudo conectar a Odoo. Verifica los ajustes.']);

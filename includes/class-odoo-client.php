@@ -14,6 +14,7 @@ class OdooConnect_Client {
     private ?string $session_id = null;
     private ?int    $uid        = null;
     private int     $timeout    = 30;
+    private int     $batch_timeout = 120;
 
     public function __construct(string $url, string $db, string $username, string $password) {
         $this->url      = rtrim($url, '/');
@@ -56,25 +57,31 @@ class OdooConnect_Client {
     }
 
     // ── Helpers de producto ───────────────────────────────────
-    /** Devuelve todos los product.template activos disponibles en POS */
+    /** Devuelve todos los product.template activos disponibles en POS (sin imagen para batch rápido) */
     public function get_all_products(): array {
-        return $this->call('product.template', 'search_read',
+        $prev = $this->timeout;
+        $this->timeout = $this->batch_timeout;
+        $result = $this->call('product.template', 'search_read',
             [[['available_in_pos', '=', true], ['active', '=', true]]],
             [
                 'fields' => [
                     'id', 'name', 'default_code', 'list_price',
-                    'description_sale', 'image_1920', 'pos_categ_ids',
+                    'description_sale', 'pos_categ_ids',
                     'attribute_line_ids', 'write_date',
                 ],
                 'limit'  => 1000,
                 'order'  => 'id asc',
             ]
         ) ?? [];
+        $this->timeout = $prev;
+        return $result;
     }
 
-    /** Devuelve productos modificados desde $since (datetime string UTC) */
+    /** Devuelve productos modificados desde $since (sin imagen para batch rápido) */
     public function get_products_since(string $since): array {
-        return $this->call('product.template', 'search_read',
+        $prev = $this->timeout;
+        $this->timeout = $this->batch_timeout;
+        $result = $this->call('product.template', 'search_read',
             [[
                 ['available_in_pos', '=', true],
                 ['active', '=', true],
@@ -83,13 +90,15 @@ class OdooConnect_Client {
             [
                 'fields' => [
                     'id', 'name', 'default_code', 'list_price',
-                    'description_sale', 'image_1920', 'pos_categ_ids',
+                    'description_sale', 'pos_categ_ids',
                     'attribute_line_ids', 'write_date',
                 ],
                 'limit'  => 1000,
                 'order'  => 'write_date asc',
             ]
         ) ?? [];
+        $this->timeout = $prev;
+        return $result;
     }
 
     /** Devuelve todos los IDs activos (para detección de borrados) */
