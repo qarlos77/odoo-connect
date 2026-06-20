@@ -42,6 +42,17 @@ class OdooConnect_ProductSyncer {
         return $this->stats;
     }
 
+    /** Sincroniza un lote de IDs de Odoo (usado por el sync chunked del frontend) */
+    public function sync_chunk(array $odoo_ids, bool $handle_deletions = false): array {
+        $this->stats = array_fill_keys(array_keys($this->stats), 0);
+        $products    = $this->odoo->get_products_by_ids($odoo_ids);
+        $this->sync_products($products);
+        if ($handle_deletions) {
+            $this->handle_deletions($products);
+        }
+        return $this->stats;
+    }
+
     /** Sincroniza un único producto por su Odoo ID (llamado desde webhook) */
     public function sync_one(int $odoo_id): array {
         $this->stats = array_fill_keys(array_keys($this->stats), 0);

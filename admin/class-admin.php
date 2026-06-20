@@ -8,6 +8,8 @@ class OdooConnect_Admin {
         add_action('admin_init',    [__CLASS__, 'register_settings']);
         add_action('admin_enqueue_scripts', [__CLASS__, 'enqueue_assets']);
         add_action('wp_ajax_odoo_connect_full_sync',        [__CLASS__, 'ajax_full_sync']);
+        add_action('wp_ajax_odoo_connect_get_ids',          [__CLASS__, 'ajax_get_ids']);
+        add_action('wp_ajax_odoo_connect_sync_chunk',       [__CLASS__, 'ajax_sync_chunk']);
         add_action('wp_ajax_odoo_connect_test_connection',  [__CLASS__, 'ajax_test_connection']);
         add_action('wp_ajax_odoo_connect_clear_logs',       [__CLASS__, 'ajax_clear_logs']);
     }
@@ -81,7 +83,53 @@ class OdooConnect_Admin {
         include ODOO_CONNECT_DIR . 'admin/views/page-logs.php';
     }
 
-    // ── AJAX: Sync manual ─────────────────────────────────────
+    // ── AJAX: Obtener IDs de Odoo (paso 1 del sync chunked) ──
+    public static function ajax_get_ids(): void {
+        check_ajax_referer('odoo_connect_nonce', 'nonce');
+        if (!current_user_can('manage_options')) wp_die('No autorizado');
+
+        $client = OdooConnect_Scheduler::build_client();
+        if (!$client) {
+            wp_send_json_error(['message' => 'No se pudo conectar a Odoo. Verifica los ajustes.']);
+        }
+
+        try {
+            $ids = $client->get_all_product_ids();
+            wp_send_json_success(['ids' => $ids, 'total' => count($ids)]);
+        } catch (Throwable $e) {
+            wp_send_json_error(['message' => $e->getMessage()]);
+        }
+    }
+
+    // ── AJAX: Sincronizar chunk de IDs (paso 2..N del sync chunked) ──
+    public static function ajax_sync_chunk(): void {
+        check_ajax_referer('odoo_connect_nonce', 'nonce');
+        if (!current_user_can('manage_options')) wp_die('No autorizado');
+
+        @set_time_limit(120);
+        ignore_user_abort(true);
+
+        $ids            = array_map('intval', (array) ($_POST['ids'] ?? []));
+        $is_last        = !empty($_POST['is_last']);
+
+        $client = OdooConnect_Scheduler::build_client();
+        if (!$client) {
+            wp_send_json_error(['message' => 'No se pudo conectar a Odoo.']);
+        }
+
+        try {
+            $syncer = new OdooConnect_ProductSyncer($client);
+            $stats  = $syncer->sync_chunk($ids, $is_last);
+            if ($is_last) {
+                update_option('odoo_connect_last_sync', gmdate('Y-m-d H:i:s'));
+            }
+            wp_send_json_success(['stats' => $stats]);
+        } catch (Throwable $e) {
+            wp_send_json_error(['message' => $e->getMessage()]);
+        }
+    }
+
+    // ── AJAX: Sync manual (legacy — redirige al chunked) ─────
     public static function ajax_full_sync(): void {
         check_ajax_referer('odoo_connect_nonce', 'nonce');
         if (!current_user_can('manage_options')) wp_die('No autorizado');
@@ -94,9 +142,13 @@ class OdooConnect_Admin {
             wp_send_json_error(['message' => 'No se pudo conectar a Odoo. Verifica los ajustes.']);
         }
 
-        $syncer = new OdooConnect_ProductSyncer($client);
-        $stats  = $syncer->run_full_sync();
-        wp_send_json_success(['stats' => $stats]);
+        try {
+            $syncer = new OdooConnect_ProductSyncer($client);
+            $stats  = $syncer->run_full_sync();
+            wp_send_json_success(['stats' => $stats]);
+        } catch (Throwable $e) {
+            wp_send_json_error(['message' => $e->getMessage()]);
+        }
     }
 
     // ── AJAX: Test conexión ───────────────────────────────────

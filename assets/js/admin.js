@@ -33,7 +33,7 @@
         });
     });
 
-    // ── Sincronización manual ─────────────────────────────────
+    // ── Sincronización manual (chunked para evitar timeouts) ──
     $('#oc-sync-btn').on('click', function () {
         var $btn    = $(this);
         var $result = $('#oc-sync-result');
@@ -41,38 +41,93 @@
         if (!confirm('¿Sincronizar todos los productos desde Odoo?')) return;
 
         $btn.addClass('loading').prop('disabled', true);
-        $btn.find('.dashicons').addClass('spin');
-        $result.hide().removeClass('success error');
+        $result.show().removeClass('success error').html(
+            '<span class="oc-progress-msg">Obteniendo lista de productos…</span>' +
+            '<div class="oc-progress-bar"><div class="oc-progress-fill" style="width:0%"></div></div>'
+        );
 
-        $.post(OdooConnect.ajax_url, {
-            action: 'odoo_connect_full_sync',
-            nonce:  OdooConnect.nonce,
-        })
+        var CHUNK = 6;
+        var totals = {created:0, updated:0, skipped:0, unpublished:0, errors:0};
+
+        // Paso 1: obtener todos los IDs
+        $.post(OdooConnect.ajax_url, {action: 'odoo_connect_get_ids', nonce: OdooConnect.nonce})
         .done(function (res) {
-            $result.show();
-            if (res.success) {
-                var s = res.data.stats;
-                $result.addClass('success').html(
-                    '<strong>✓ Sincronización completada</strong><br>' +
-                    '📦 Creados: <strong>' + s.created + '</strong> &nbsp;|&nbsp; ' +
-                    '✏️ Actualizados: <strong>' + s.updated + '</strong> &nbsp;|&nbsp; ' +
-                    '⏭️ Sin cambios: <strong>' + s.skipped + '</strong> &nbsp;|&nbsp; ' +
-                    '🚫 Despublicados: <strong>' + s.unpublished + '</strong>' +
-                    (s.errors ? ' &nbsp;|&nbsp; ⚠️ Errores: <strong>' + s.errors + '</strong>' : '')
+            if (!res.success) {
+                $result.addClass('error').html('✗ ' + (res.data ? res.data.message : 'Error al obtener IDs'));
+                $btn.removeClass('loading').prop('disabled', false);
+                return;
+            }
+
+            var allIds  = res.data.ids;
+            var total   = allIds.length;
+            var done    = 0;
+            var chunks  = [];
+
+            for (var i = 0; i < total; i += CHUNK) {
+                chunks.push(allIds.slice(i, i + CHUNK));
+            }
+
+            // Paso 2: sincronizar chunk a chunk en serie
+            function syncNext(idx) {
+                if (idx >= chunks.length) {
+                    // Todo listo
+                    var pct = 100;
+                    $result.find('.oc-progress-fill').css('width', pct + '%');
+                    $result.addClass('success').html(
+                        '<strong>✓ Sincronización completada</strong><br>' +
+                        'Creados: <strong>' + totals.created + '</strong> &nbsp;|&nbsp; ' +
+                        'Actualizados: <strong>' + totals.updated + '</strong> &nbsp;|&nbsp; ' +
+                        'Sin cambios: <strong>' + totals.skipped + '</strong> &nbsp;|&nbsp; ' +
+                        'Despublicados: <strong>' + totals.unpublished + '</strong>' +
+                        (totals.errors ? ' &nbsp;|&nbsp; ⚠️ Errores: <strong>' + totals.errors + '</strong>' : '')
+                    );
+                    $('#oc-last-sync').text(new Date().toLocaleString('es-PE'));
+                    $btn.removeClass('loading').prop('disabled', false);
+                    return;
+                }
+
+                var chunk   = chunks[idx];
+                var isLast  = (idx === chunks.length - 1);
+                done       += chunk.length;
+                var pct     = Math.round((done / total) * 100);
+
+                $result.find('.oc-progress-msg').text(
+                    'Sincronizando ' + done + ' / ' + total + ' productos…'
                 );
-                // Actualizar timestamp
-                var now = new Date();
-                $('#oc-last-sync').text(now.toLocaleString('es-PE'));
+                $result.find('.oc-progress-fill').css('width', pct + '%');
+
+                $.post(OdooConnect.ajax_url, {
+                    action:  'odoo_connect_sync_chunk',
+                    nonce:   OdooConnect.nonce,
+                    ids:     chunk,
+                    is_last: isLast ? 1 : 0,
+                })
+                .done(function (r) {
+                    if (r.success && r.data.stats) {
+                        var s = r.data.stats;
+                        totals.created     += s.created     || 0;
+                        totals.updated     += s.updated     || 0;
+                        totals.skipped     += s.skipped     || 0;
+                        totals.unpublished += s.unpublished || 0;
+                        totals.errors      += s.errors      || 0;
+                    }
+                    syncNext(idx + 1);
+                })
+                .fail(function () {
+                    totals.errors += chunk.length;
+                    syncNext(idx + 1); // continuar aunque falle un chunk
+                });
+            }
+
+            if (total === 0) {
+                $result.addClass('success').html('✓ No hay productos en Odoo.');
+                $btn.removeClass('loading').prop('disabled', false);
             } else {
-                $result.addClass('error').html(
-                    '✗ ' + (res.data ? res.data.message : 'Error desconocido')
-                );
+                syncNext(0);
             }
         })
         .fail(function () {
-            $result.show().addClass('error').html('✗ Error de red o timeout.');
-        })
-        .always(function () {
+            $result.show().addClass('error').html('✗ No se pudo conectar a Odoo.');
             $btn.removeClass('loading').prop('disabled', false);
         });
     });

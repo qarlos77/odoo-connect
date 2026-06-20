@@ -103,10 +103,24 @@ class OdooConnect_Client {
 
     /** Devuelve todos los IDs activos (para detección de borrados) */
     public function get_all_product_ids(): array {
-        $result = $this->call('product.template', 'search',
+        return $this->call('product.template', 'search',
             [[['available_in_pos', '=', true], ['active', '=', true]]]
         ) ?? [];
-        return $result;
+    }
+
+    /** Devuelve un conjunto de productos por IDs (sin imagen para uso en batch) */
+    public function get_products_by_ids(array $ids): array {
+        if (empty($ids)) return [];
+        return $this->call('product.template', 'search_read',
+            [[['id', 'in', $ids]]],
+            [
+                'fields' => [
+                    'id', 'name', 'default_code', 'list_price',
+                    'description_sale', 'pos_categ_ids',
+                    'attribute_line_ids', 'write_date', 'active',
+                ],
+            ]
+        ) ?? [];
     }
 
     /** Devuelve un producto por ID */

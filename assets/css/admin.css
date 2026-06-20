@@ -60,6 +60,21 @@
 .oc-sync-result.success { background: #edfaef; border: 1px solid #00a32a; color: #1d2327; }
 .oc-sync-result.error   { background: #fcf0f1; border: 1px solid #d63638; color: #1d2327; }
 
+/* Progress bar */
+.oc-progress-msg { display: block; font-size: 13px; margin-bottom: 8px; color: #50575e; }
+.oc-progress-bar {
+    height: 8px;
+    background: #dcdcde;
+    border-radius: 4px;
+    overflow: hidden;
+}
+.oc-progress-fill {
+    height: 100%;
+    background: #2271b1;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
 /* Status list */
 .oc-status-list { margin: 0; padding: 0; list-style: none; }
 .oc-status-list li { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f0f0f1; font-size: 13px; }
