@@ -10,6 +10,7 @@ class OdooConnect_Admin {
         add_action('wp_ajax_odoo_connect_full_sync',        [__CLASS__, 'ajax_full_sync']);
         add_action('wp_ajax_odoo_connect_get_ids',          [__CLASS__, 'ajax_get_ids']);
         add_action('wp_ajax_odoo_connect_sync_chunk',       [__CLASS__, 'ajax_sync_chunk']);
+        add_action('wp_ajax_odoo_connect_run_deletions',    [__CLASS__, 'ajax_run_deletions']);
         add_action('wp_ajax_odoo_connect_test_connection',  [__CLASS__, 'ajax_test_connection']);
         add_action('wp_ajax_odoo_connect_clear_logs',       [__CLASS__, 'ajax_clear_logs']);
     }
@@ -54,12 +55,13 @@ class OdooConnect_Admin {
             'odoo_connect_webhook_secret' => ['label' => 'Clave del webhook',     'type' => 'text'],
         ];
 
-        register_setting('odoo_connect_group', 'odoo_connect_url',           ['sanitize_callback' => 'esc_url_raw']);
-        register_setting('odoo_connect_group', 'odoo_connect_db',            ['sanitize_callback' => 'sanitize_text_field']);
-        register_setting('odoo_connect_group', 'odoo_connect_user',          ['sanitize_callback' => 'sanitize_text_field']);
-        register_setting('odoo_connect_group', 'odoo_connect_password',      ['sanitize_callback' => 'sanitize_text_field']);
-        register_setting('odoo_connect_group', 'odoo_connect_sync_interval', ['sanitize_callback' => 'sanitize_text_field']);
-        register_setting('odoo_connect_group', 'odoo_connect_webhook_secret',['sanitize_callback' => 'sanitize_text_field']);
+        register_setting('odoo_connect_group', 'odoo_connect_url',            ['sanitize_callback' => 'esc_url_raw']);
+        register_setting('odoo_connect_group', 'odoo_connect_db',             ['sanitize_callback' => 'sanitize_text_field']);
+        register_setting('odoo_connect_group', 'odoo_connect_user',           ['sanitize_callback' => 'sanitize_text_field']);
+        register_setting('odoo_connect_group', 'odoo_connect_password',       ['sanitize_callback' => 'sanitize_text_field']);
+        register_setting('odoo_connect_group', 'odoo_connect_sync_interval',  ['sanitize_callback' => 'sanitize_text_field']);
+        register_setting('odoo_connect_group', 'odoo_connect_webhook_secret', ['sanitize_callback' => 'sanitize_text_field']);
+        register_setting('odoo_connect_group', 'odoo_connect_product_status', ['sanitize_callback' => 'sanitize_text_field', 'default' => 'publish']);
     }
 
     // ── Assets ────────────────────────────────────────────────
@@ -175,6 +177,26 @@ class OdooConnect_Admin {
             }
         } catch (Exception $e) {
             wp_send_json_error(['message' => 'Error: ' . $e->getMessage()]);
+        }
+    }
+
+    // ── AJAX: Eliminaciones post-sync ────────────────────────
+    public static function ajax_run_deletions(): void {
+        check_ajax_referer('odoo_connect_nonce', 'nonce');
+        if (!current_user_can('manage_options')) wp_die('No autorizado');
+
+        $ids    = array_map('intval', (array) ($_POST['ids'] ?? []));
+        $client = OdooConnect_Scheduler::build_client();
+        if (!$client) {
+            wp_send_json_error(['message' => 'No se pudo conectar a Odoo.']);
+        }
+
+        try {
+            $syncer = new OdooConnect_ProductSyncer($client);
+            $stats  = $syncer->run_deletions($ids);
+            wp_send_json_success(['stats' => $stats]);
+        } catch (Throwable $e) {
+            wp_send_json_error(['message' => $e->getMessage()]);
         }
     }
 

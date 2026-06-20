@@ -160,6 +160,7 @@ class OdooConnect_ProductSyncer {
         $product->update_meta_data('_odoo_id',        $odoo['id']);
         $product->update_meta_data('_odoo_write_date', $odoo['write_date'] ?? '');
         $product->save();
+        $this->force_status($product);
 
         $this->maybe_update_image($product, $odoo['image_1920'] ?? null);
 
@@ -224,6 +225,7 @@ class OdooConnect_ProductSyncer {
         $product->update_meta_data('_odoo_id',        $odoo['id']);
         $product->update_meta_data('_odoo_write_date', $odoo['write_date'] ?? '');
         $product->save();
+        $this->force_status($product);
 
         // Sincronizar variaciones
         $this->sync_variations($product, $price_line, $odoo['list_price'], $wc_attr['slug']);
@@ -291,8 +293,10 @@ class OdooConnect_ProductSyncer {
             ? ($odoo['name']['es_PE'] ?? $odoo['name']['en_US'] ?? '')
             : ($odoo['name'] ?? '');
 
+        $target_status = get_option('odoo_connect_product_status', 'publish');
+
         $product->set_name($name);
-        $product->set_status('publish');
+        $product->set_status($target_status);
         $product->set_catalog_visibility('visible');
 
         $desc = $odoo['description_sale'] ?? '';
@@ -365,10 +369,27 @@ class OdooConnect_ProductSyncer {
         return $att_id ?: null;
     }
 
+    // ── Forzar estado tras primer save ────────────────────────
+    private function force_status(WC_Product $product): void {
+        $target = get_option('odoo_connect_product_status', 'publish');
+        if (get_post_status($product->get_id()) !== $target) {
+            wp_update_post(['ID' => $product->get_id(), 'post_status' => $target]);
+        }
+    }
+
+    // ── Eliminaciones desde el admin (recibe todos los IDs activos) ──
+    public function run_deletions(array $all_active_odoo_ids): array {
+        $this->stats = array_fill_keys(array_keys($this->stats), 0);
+        $this->handle_deletions_by_ids($all_active_odoo_ids);
+        return $this->stats;
+    }
+
     // ── Manejo de borrados ────────────────────────────────────
     private function handle_deletions(array $synced_products): void {
-        $odoo_ids = array_column($synced_products, 'id');
+        $this->handle_deletions_by_ids(array_column($synced_products, 'id'));
+    }
 
+    private function handle_deletions_by_ids(array $active_odoo_ids): void {
         global $wpdb;
         $wc_products = $wpdb->get_results(
             "SELECT post_id FROM {$wpdb->postmeta}
@@ -377,7 +398,7 @@ class OdooConnect_ProductSyncer {
 
         foreach ($wc_products as $row) {
             $odoo_id = (int) get_post_meta($row->post_id, '_odoo_id', true);
-            if (!in_array($odoo_id, $odoo_ids, true)) {
+            if (!in_array($odoo_id, $active_odoo_ids, true)) {
                 $this->unpublish_wc_product($row->post_id, $odoo_id);
             }
         }

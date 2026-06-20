@@ -61,6 +61,27 @@
                 </div>
 
                 <div class="oc-card">
+                    <h2>Comportamiento de productos</h2>
+                    <table class="form-table">
+                        <tr>
+                            <th><label for="oc_product_status">Estado al importar</label></th>
+                            <td>
+                                <select id="oc_product_status" name="odoo_connect_product_status">
+                                    <?php $current_status = get_option('odoo_connect_product_status', 'publish'); ?>
+                                    <option value="publish" <?= selected($current_status, 'publish', false) ?>>
+                                        Publicado (visible en tienda)
+                                    </option>
+                                    <option value="draft" <?= selected($current_status, 'draft', false) ?>>
+                                        Borrador (revisar manualmente)
+                                    </option>
+                                </select>
+                                <p class="description">Estado con el que se crean y actualizan los productos sincronizados desde Odoo.</p>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+
+                <div class="oc-card">
                     <h2>Sincronización automática</h2>
                     <table class="form-table">
                         <tr>

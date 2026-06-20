@@ -68,21 +68,33 @@
             }
 
             // Paso 2: sincronizar chunk a chunk en serie
-            function syncNext(idx) {
+            function syncNext(idx, allIds) {
                 if (idx >= chunks.length) {
-                    // Todo listo
-                    var pct = 100;
-                    $result.find('.oc-progress-fill').css('width', pct + '%');
-                    $result.addClass('success').html(
-                        '<strong>✓ Sincronización completada</strong><br>' +
-                        'Creados: <strong>' + totals.created + '</strong> &nbsp;|&nbsp; ' +
-                        'Actualizados: <strong>' + totals.updated + '</strong> &nbsp;|&nbsp; ' +
-                        'Sin cambios: <strong>' + totals.skipped + '</strong> &nbsp;|&nbsp; ' +
-                        'Despublicados: <strong>' + totals.unpublished + '</strong>' +
-                        (totals.errors ? ' &nbsp;|&nbsp; ⚠️ Errores: <strong>' + totals.errors + '</strong>' : '')
-                    );
-                    $('#oc-last-sync').text(new Date().toLocaleString('es-PE'));
-                    $btn.removeClass('loading').prop('disabled', false);
+                    // Paso 3: detectar y despublicar productos eliminados en Odoo
+                    $result.find('.oc-progress-msg').text('Verificando eliminaciones…');
+                    $.post(OdooConnect.ajax_url, {
+                        action: 'odoo_connect_run_deletions',
+                        nonce:  OdooConnect.nonce,
+                        ids:    allIds,
+                    })
+                    .done(function (r) {
+                        if (r.success && r.data.stats) {
+                            totals.unpublished += r.data.stats.unpublished || 0;
+                        }
+                    })
+                    .always(function () {
+                        $result.find('.oc-progress-fill').css('width', '100%');
+                        $result.addClass('success').html(
+                            '<strong>✓ Sincronización completada</strong><br>' +
+                            'Creados: <strong>' + totals.created + '</strong> &nbsp;|&nbsp; ' +
+                            'Actualizados: <strong>' + totals.updated + '</strong> &nbsp;|&nbsp; ' +
+                            'Sin cambios: <strong>' + totals.skipped + '</strong> &nbsp;|&nbsp; ' +
+                            'Despublicados: <strong>' + totals.unpublished + '</strong>' +
+                            (totals.errors ? ' &nbsp;|&nbsp; ⚠️ Errores: <strong>' + totals.errors + '</strong>' : '')
+                        );
+                        $('#oc-last-sync').text(new Date().toLocaleString('es-PE'));
+                        $btn.removeClass('loading').prop('disabled', false);
+                    });
                     return;
                 }
 
@@ -97,25 +109,25 @@
                 $result.find('.oc-progress-fill').css('width', pct + '%');
 
                 $.post(OdooConnect.ajax_url, {
-                    action:  'odoo_connect_sync_chunk',
-                    nonce:   OdooConnect.nonce,
-                    ids:     chunk,
-                    is_last: isLast ? 1 : 0,
+                    action: 'odoo_connect_sync_chunk',
+                    nonce:  OdooConnect.nonce,
+                    ids:    chunk,
                 })
                 .done(function (r) {
                     if (r.success && r.data.stats) {
                         var s = r.data.stats;
-                        totals.created     += s.created     || 0;
-                        totals.updated     += s.updated     || 0;
-                        totals.skipped     += s.skipped     || 0;
-                        totals.unpublished += s.unpublished || 0;
-                        totals.errors      += s.errors      || 0;
+                        totals.created += s.created || 0;
+                        totals.updated += s.updated || 0;
+                        totals.skipped += s.skipped || 0;
+                        totals.errors  += s.errors  || 0;
+                    } else if (!r.success) {
+                        totals.errors += chunk.length;
                     }
-                    syncNext(idx + 1);
+                    syncNext(idx + 1, allIds);
                 })
                 .fail(function () {
                     totals.errors += chunk.length;
-                    syncNext(idx + 1); // continuar aunque falle un chunk
+                    syncNext(idx + 1, allIds);
                 });
             }
 
@@ -123,7 +135,7 @@
                 $result.addClass('success').html('✓ No hay productos en Odoo.');
                 $btn.removeClass('loading').prop('disabled', false);
             } else {
-                syncNext(0);
+                syncNext(0, allIds);
             }
         })
         .fail(function () {
