@@ -187,6 +187,12 @@ class OdooConnect_Client {
     /** Devuelve nombres de categorías POS dados sus IDs */
     public function get_pos_categories(array $ids): array {
         if (empty($ids)) return [];
+        // Odoo puede devolver [id, nombre] en lugar de enteros simples; normalizamos
+        $ids = array_values(array_unique(array_filter(array_map(
+            fn($v) => is_array($v) ? (int) $v[0] : (int) $v,
+            $ids
+        ))));
+        if (empty($ids)) return [];
         $raw = $this->call('pos.category', 'search_read',
             [[['id', 'in', $ids]]],
             ['fields' => ['id', 'name']]

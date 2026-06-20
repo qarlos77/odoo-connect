@@ -86,7 +86,9 @@ class OdooConnect_ProductSyncer {
         // Batch-fetch POS categories
         $all_cat_ids = [];
         foreach ($products as $p) {
-            $all_cat_ids = array_merge($all_cat_ids, $p['pos_categ_ids'] ?? []);
+            foreach ($p['pos_categ_ids'] ?? [] as $v) {
+                $all_cat_ids[] = is_array($v) ? (int) $v[0] : (int) $v;
+            }
         }
         $cat_names = $this->odoo->get_pos_categories(array_unique($all_cat_ids));
 
